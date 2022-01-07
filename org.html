@@ -1,0 +1,269 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+
+  <body>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-org-chart@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
+    <div
+      class="chart-container"
+      style="height: 1200px; background-color: #fffeff"
+    ></div>
+
+    <script>
+      var chart;
+      d3.csv("data.csv").then((rawData) => {
+        var dataFlattened = adaptTTData(rawData);
+
+        chart = new d3.OrgChart()
+          .container(".chart-container")
+          .data(dataFlattened)
+          .nodeHeight((d) => 70)
+          .nodeWidth((d) => {
+            if (d.depth == 0) return 250;
+            if (d.depth == 1) return 220;
+            return 140;
+          })
+          .childrenMargin((d) => 50)
+          .compactMarginBetween((d) => 55)
+          .compactMarginPair((d) => 30)
+          .neightbourMargin((a, b) => 50)
+          .buttonContent(({ node, state }) => {
+            if(node.data.primarySkill=="tribe"){
+
+            }else{
+                return `<div style="border-radius:3px;padding:3px;font-size:10px;margin:auto auto;background-color:lightgray"> <span style="font-size:9px">${
+                node.children
+                    ? `<i class="fas fa-chevron-up"></i>`
+                    : `<i class="fas fa-chevron-down"></i>`
+                }</span> ${node.data._directSubordinates}  </div>`;
+            }
+           
+          })
+          .nodeContent(function (d, i, arr, state) {
+            const colors = ["#cc72bd", "#00aeef", "#055C73"];
+            var color = colors[d.depth % colors.length];
+
+            switch (d.data.location) {
+              case "Pune":
+                color = colors[0];
+                break;
+              case "Radbroke":
+                color = colors[1];
+                break;
+              case "Manchester":
+                color = colors[2];
+                break;
+              default:
+                color = colors[1];
+            }
+
+            var nodeHTML = `
+            <div style="background-color:${color}; position:absolute;margin-top:-1px; margin-left:-1px;width:${
+              d.width
+            }px;height:${d.height}px;border-radius:50px">
+               <div style="position:absolute;top:-15px;width:${
+                 d.width
+               }px;text-align:center;color:#fafafa;">
+                     <div style="margin:0 auto;background-color:${color};display:inline-block;padding:8px;padding-bottom:0px;border-radius:5px"> 
+                        ${d.data.primarySkill}
+                        </div>
+              </div>
+              <div style="color:#fafafa;font-size:${
+                d.depth < 2 ? 16 : 12
+              }px;font-weight:bold;margin-left:auto;margin-top:15px;text-align:center"> ${
+              d.data.name
+            } </div>
+              <div style="color:#fafafa;margin-left:auto;margin-top:5px;text-align:center"> ${
+                d.depth < 1 ? '' : d.data.id
+              } </div>
+              <div style="color:#fafafa;margin-left:auto;margin-top:5px;text-align:center; font-size:8px"> <span>${
+                d.data.employeeType
+              } </span>
+            <span style="margin-left:5px">${d.data.location}</span> 
+            <span style="margin-left:5px">${d.data.grade}</span> 
+            </div>
+           </div>
+  `;
+
+           if(d.data.primarySkill=="tribe"){
+             nodeHTML = `
+                    <div style="background-color:${color}; position:absolute;margin-top:-1px; margin-left:-1px;width:${
+                        d.width
+                    }px;height:${d.height + 20}px;border-radius:50px">
+                    <div style="position:absolute;top:-15px;width:${
+                        d.width
+                    }px;text-align:center;color:#fafafa;">
+                    </div>
+                    <div style="color:#fafafa;font-size:${
+                        d.depth < 2 ? 16 : 12
+                    }px;font-weight:bold;margin-left:auto;margin-top:15px;text-align:center"> ${
+                        d.data.name
+                    } </div>
+                    <div style="color:#fafafa;margin-left:auto;margin-top:5px;text-align:center"> Tribe Lead : ${
+                        d.data.tribe.tribeLead.name
+                    } </div>
+                    <div style="color:#fafafa;margin-left:auto;margin-top:5px;text-align:center"> Tech Lead : ${
+                        d.data.tribe.techLead.name
+                    } </div>
+                    </div>
+                </div>
+                `;
+           }
+
+           if(d.data.primarySkill=="featureteam"){
+             nodeHTML = `
+                    <div style="background-color:${color}; position:absolute;margin-top:-1px; margin-left:-1px;width:${
+                        d.width
+                    }px;height:${d.height}px;border-radius:50px">
+                    <div style="position:absolute;top:-15px;width:${
+                        d.width
+                    }px;text-align:center;color:#fafafa;">
+                    </div>
+                    <div style="color:#fafafa;font-size:${
+                        d.depth < 2 ? 16 : 12
+                    }px;font-weight:bold;margin-left:auto;margin-top:15px;text-align:center"> ${
+                        d.data.name
+                    } </div>
+              
+                    </div>
+                </div>
+                `;
+
+           }
+
+            return nodeHTML;
+          })
+          .render()
+          .expandAll();
+      });
+
+      function adaptTTData(data) {
+        var adaptedData = data;
+
+        //work out how many unique tribes we have
+        let tribes = new Map();
+        adaptedData.forEach((item) => {
+          if (item.tribe.length > 0) {
+            tribeId = item.tribe.toLowerCase().replace(/\s/g, "");
+
+            tribe = tribes.get(item.tribe);
+            tribes.set(item.tribe, {
+              tribeName: item.tribe,
+              tribeId: tribeId,
+              tribeLead: "",
+              techLead: "",
+            });
+          }
+        });
+
+        //set parentids based on feature team and tribe names
+        //convention is to strip all spaces and make lowercase
+        //eg Feature Team 1 within tribe 1 becomes tribe1-featureteam1
+        for (i = adaptedData.length - 1; i >= 0; --i) {
+          item = adaptedData[i];
+
+          tribeId = item.tribe.toLowerCase().replace(/\s/g, "");
+          featureTeamId =
+            tribeId + "-" + item.featureTeam.toLowerCase().replace(/\s/g, "");
+
+          //find tribe and tech leads
+          if (item.primarySkill.toLowerCase() == "Tribe Lead".toLowerCase()) {
+            // item.parentId = tribeId;
+
+            tribe = tribes.get(item.tribe);
+            tribe.tribeLead = item;
+
+            //remove from list so dont show in feature team
+            adaptedData.splice(i, 1);
+          } else if (
+            item.primarySkill.toLowerCase() == "Tech Lead".toLowerCase()
+          ) {
+            tribe = tribes.get(item.tribe);
+            tribe.techLead = item;
+
+            //remove from list so dont show in feature team
+            adaptedData.splice(i, 1);
+          } else {
+            //for everyone else add feature team as parent
+            item.parentId = featureTeamId;
+          }
+        }
+
+        //add in a dummy entry for each unique tribe
+        tribes.forEach((tribe) => {
+          adaptedData.push({
+            employeeType: "",
+            featureTeam: "",
+            grade: "",
+            id: tribe.tribeId,
+            location: "",
+            name: tribe.tribeName,
+            parentId: "bapp1",
+            positionName: "",
+            primarySkill: "tribe",
+            tribe: tribe,
+          });
+        });
+
+        let featureTeams = new Map();
+        adaptedData.forEach((item) => {
+          if (item.featureTeam.length > 0) {
+            tribeId = item.tribe.toLowerCase().replace(/\s/g, "");
+
+            featureTeams.set(tribeId + "-" + item.featureTeam, {
+              teamName: item.featureTeam,
+              tribeId: tribeId,
+              tribeName: item.tribe,
+            });
+          }
+        });
+
+        featureTeams.forEach((featureTeam) => {
+          if (featureTeam.tribeId.length > 0) {
+            adaptedData.push({
+              employeeType: "",
+              featureTeam: featureTeam.teamName,
+              grade: "",
+              id:
+                featureTeam.tribeId +
+                "-" +
+                featureTeam.teamName.toLowerCase().replace(/\s/g, ""),
+              location: "",
+              name: featureTeam.teamName,
+              parentId: featureTeam.tribeId,
+              positionName: "",
+              primarySkill: "featureteam",
+              tribe: featureTeam.tribeName,
+            });
+          }
+        });
+
+        //lastly...
+
+        //add dummy root for bapp to avoid 'Error: multiple roots'
+        adaptedData.splice(0, 0, {
+          employeeType: "",
+          featureTeam: "BAPP",
+          grade: "",
+          id: "bapp1",
+          location: "",
+          name: "BAPP",
+          parentId: "",
+          positionName: "",
+          primarySkill: "",
+          tribe: "",
+        });
+
+        console.debug(adaptedData);
+
+        //for each tribe we need to have a tribe lead TDM & Tech lead
+        //will these be in custom fields in TT?
+
+        return adaptedData;
+      }
+    </script>
+  </body>
+</html>
